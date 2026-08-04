@@ -2,8 +2,8 @@
   "use strict";
 
   const LEVELS = window.CATEGORY_SORT_LEVELS || [];
-  const STORAGE_KEY = "categorySortTextPrototype_v1";
-  const SESSION_KEY = "categorySortSession_v1";
+  const STORAGE_KEY = "categorySortDragPrototype_v2";
+  const SESSION_KEY = "categorySortDragSession_v2";
   const DEFAULT_STATE = {
     coins: 600,
     unlockedLevel: 1,
@@ -16,6 +16,8 @@
   let profile = loadProfile();
   let game = null;
   let timerId = null;
+  let dragState = null;
+  let hoverDrop = null;
 
   document.addEventListener("DOMContentLoaded", init);
 
@@ -43,6 +45,10 @@
     ui.resetProgressBtn.addEventListener("click", resetProgress);
 
     renderHome();
+    const requestedLevel = Number(new URLSearchParams(window.location.search).get("level"));
+    if (Number.isInteger(requestedLevel) && requestedLevel >= 1 && requestedLevel <= LEVELS.length) {
+      startLevel(requestedLevel);
+    }
   }
 
   function loadProfile() {
@@ -123,7 +129,9 @@
     ui.homeScreen.classList.remove("active");
     ui.gameScreen.classList.add("active");
     timerId = setInterval(updateTimer, 1000);
-    setMessage(level.id === 1 ? "Select the top card, then choose its matching category." : "Select the top card from a stack.");
+    setMessage(level.id === 1
+      ? "Drag the visible top card onto its matching yellow category pile."
+      : "Drag a visible card to a matching category or an empty Free slot.");
     renderGame();
   }
 
@@ -147,7 +155,7 @@
     renderStacks();
     renderTempSlots();
     const remaining = countRemainingCards();
-    ui.remainingCards.textContent = `${remaining} card${remaining === 1 ? "" : "s"} left`;
+    ui.remainingCards.textContent = remaining;
   }
 
   function renderCategories() {
@@ -156,10 +164,18 @@
       const placed = game.targets[name];
       const complete = placed.length === requiredCards.length;
       const target = document.createElement("button");
-      target.className = `category-target${complete ? " complete" : ""}${game.selected ? " active-target" : ""}`;
+      target.type = "button";
+      target.className = `category-target${complete ? " complete" : ""}`;
+      target.dataset.dropType = "category";
+      target.dataset.category = name;
+      target.setAttribute("aria-label", `${name}: ${placed.length} of ${requiredCards.length}`);
+      const latest = placed.at(-1);
       target.innerHTML = `
-        <div class="category-name"><span>${escapeHtml(name)}</span><span>${placed.length}/${requiredCards.length}</span></div>
-        <div class="category-items">${placed.map(card => `<span class="mini-card">${escapeHtml(card)}</span>`).join("") || '<span class="muted">Drop matching cards here</span>'}</div>
+        <span class="category-tab">${escapeHtml(name)}</span>
+        <span class="category-card">
+          <span class="category-progress">${placed.length}/${requiredCards.length}<span class="category-star">★</span></span>
+          <span class="category-display">${latest ? escapeHtml(latest) : "Drop here"}</span>
+        </span>
       `;
       target.addEventListener("click", () => moveSelectedToCategory(name));
       ui.categoryArea.appendChild(target);
@@ -171,28 +187,31 @@
     game.stacks.forEach((stack, stackIndex) => {
       const wrapper = document.createElement("div");
       wrapper.className = "card-stack";
-      wrapper.innerHTML = `<div class="stack-label"><span>Stack ${stackIndex + 1}</span><span>${stack.length}</span></div>`;
-      const visual = document.createElement("div");
-      visual.className = "stack-visual";
 
       if (stack.length === 0) {
-        visual.innerHTML = '<div class="muted" style="padding-top:40px;text-align:center">Empty</div>';
+        wrapper.innerHTML = '<div class="empty-stack">Empty</div>';
       } else {
-        stack.forEach((card, cardIndex) => {
-          const isTop = cardIndex === stack.length - 1;
-          const button = document.createElement("button");
-          button.className = `game-card ${isTop ? "top-card" : "hidden-card"}`;
-          if (isSelected("stack", stackIndex) && isTop) button.classList.add("selected");
-          if (isHinted("stack", stackIndex) && isTop) button.classList.add("hinted");
-          button.style.bottom = `${cardIndex * 24}px`;
-          button.style.zIndex = cardIndex + 1;
-          button.textContent = isTop ? card : "Hidden";
-          button.disabled = !isTop || game.completed || game.failed;
-          if (isTop) button.addEventListener("click", () => selectSource("stack", stackIndex));
-          visual.appendChild(button);
-        });
+        const shell = document.createElement("div");
+        shell.className = "stack-shell";
+        const visibleLayers = Math.min(2, Math.max(0, stack.length - 1));
+        for (let layer = visibleLayers; layer >= 1; layer -= 1) {
+          const backing = document.createElement("span");
+          backing.className = `stack-layer layer-${layer}`;
+          shell.appendChild(backing);
+        }
+
+        const card = stack[stack.length - 1];
+        const button = createSourceCard(card, "stack", stackIndex);
+        shell.appendChild(button);
+
+        if (stack.length > 1) {
+          const count = document.createElement("span");
+          count.className = "stack-count";
+          count.textContent = stack.length;
+          shell.appendChild(count);
+        }
+        wrapper.appendChild(shell);
       }
-      wrapper.appendChild(visual);
       ui.stackArea.appendChild(wrapper);
     });
   }
@@ -200,16 +219,205 @@
   function renderTempSlots() {
     ui.tempArea.innerHTML = "";
     game.temp.forEach((card, index) => {
-      const slot = document.createElement("button");
-      slot.className = `temp-slot${card ? " occupied" : ""}${isSelected("temp", index) ? " selected" : ""}`;
+      const slot = document.createElement("div");
+      slot.className = `temp-slot ${card ? "occupied" : "empty"}${isSelected("temp", index) ? " selected" : ""}`;
+      slot.dataset.dropType = "temp";
+      slot.dataset.tempIndex = index;
+      slot.setAttribute("role", "button");
+      slot.setAttribute("tabindex", "0");
+      slot.setAttribute("aria-label", card ? `Free slot ${index + 1}: ${card}` : `Empty free slot ${index + 1}`);
       if (isHinted("temp", index)) slot.classList.add("hinted");
-      slot.innerHTML = card ? `<span>${escapeHtml(card)}</span>` : `<span>Empty Slot ${index + 1}</span>`;
-      slot.addEventListener("click", () => {
+
+      if (card) {
+        const button = createSourceCard(card, "temp", index);
+        slot.appendChild(button);
+      }
+
+      const activateSlot = () => {
         if (game.selected && !card) moveSelectedToTemp(index);
         else if (card) selectSource("temp", index);
+      };
+      slot.addEventListener("click", event => {
+        if (event.target.closest(".source-card")) return;
+        activateSlot();
+      });
+      slot.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activateSlot();
+        }
       });
       ui.tempArea.appendChild(slot);
     });
+  }
+
+  function createSourceCard(card, type, index) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "sort-card source-card";
+    button.dataset.sourceType = type;
+    button.dataset.sourceIndex = index;
+    button.setAttribute("aria-label", `Drag ${card}`);
+    button.setAttribute("aria-grabbed", isSelected(type, index) ? "true" : "false");
+    if (isSelected(type, index)) button.classList.add("selected");
+    if (isHinted(type, index)) button.classList.add("hinted");
+    button.innerHTML = `<span class="drag-grip"></span><span class="card-text">${escapeHtml(card)}</span>`;
+    attachCardPointerEvents(button, type, index);
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      if (button.dataset.dragged === "true") {
+        button.dataset.dragged = "false";
+        return;
+      }
+      selectSource(type, index);
+    });
+    return button;
+  }
+
+  function attachCardPointerEvents(element, type, index) {
+    element.addEventListener("pointerdown", event => {
+      if (game.completed || game.failed) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const card = getSourceCard(type, index);
+      if (!card) return;
+      event.preventDefault();
+      cleanupDrag();
+      dragState = {
+        pointerId: event.pointerId,
+        type,
+        index,
+        card,
+        sourceElement: element,
+        startX: event.clientX,
+        startY: event.clientY,
+        x: event.clientX,
+        y: event.clientY,
+        dragging: false,
+        ghost: null
+      };
+      element.setPointerCapture?.(event.pointerId);
+      element.addEventListener("pointermove", onPointerMove);
+      element.addEventListener("pointerup", onPointerUp);
+      element.addEventListener("pointercancel", onPointerCancel);
+    });
+  }
+
+  function onPointerMove(event) {
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    event.preventDefault();
+    dragState.x = event.clientX;
+    dragState.y = event.clientY;
+    const distance = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
+    if (!dragState.dragging && distance >= 6) startVisualDrag();
+    if (!dragState.dragging) return;
+    positionGhost(event.clientX, event.clientY);
+    updateHoverDrop(event.clientX, event.clientY);
+  }
+
+  function onPointerUp(event) {
+    if (!dragState || event.pointerId !== dragState.pointerId) return;
+    event.preventDefault();
+    const state = dragState;
+    if (state.dragging) {
+      state.sourceElement.dataset.dragged = "true";
+      const target = findDropTarget(event.clientX, event.clientY);
+      performDrop(state, target);
+    }
+    cleanupDrag();
+  }
+
+  function onPointerCancel() {
+    cleanupDrag();
+  }
+
+  function startVisualDrag() {
+    if (!dragState || dragState.dragging) return;
+    dragState.dragging = true;
+    dragState.sourceElement.classList.add("dragging-source");
+    document.body.classList.add("drag-active");
+    const ghost = document.createElement("div");
+    ghost.className = "drag-ghost";
+    ghost.innerHTML = `<div class="sort-card"><span class="drag-grip"></span><span class="card-text">${escapeHtml(dragState.card)}</span></div>`;
+    document.body.appendChild(ghost);
+    dragState.ghost = ghost;
+    positionGhost(dragState.x, dragState.y);
+    setMessage(`Dragging “${dragState.card}”. Drop it on the correct yellow pile or a Free slot.`);
+  }
+
+  function positionGhost(x, y) {
+    if (!dragState?.ghost) return;
+    dragState.ghost.style.left = `${x}px`;
+    dragState.ghost.style.top = `${y}px`;
+  }
+
+  function findDropTarget(x, y) {
+    const element = document.elementFromPoint(x, y);
+    return element?.closest?.("[data-drop-type]") || null;
+  }
+
+  function updateHoverDrop(x, y) {
+    const target = findDropTarget(x, y);
+    if (hoverDrop === target) return;
+    clearHoverDrop();
+    hoverDrop = target;
+    if (!target || !dragState) return;
+    const valid = isValidDrop(dragState, target);
+    target.classList.add(valid ? "drop-valid" : "drop-invalid");
+  }
+
+  function clearHoverDrop() {
+    if (hoverDrop) hoverDrop.classList.remove("drop-valid", "drop-invalid");
+    hoverDrop = null;
+  }
+
+  function isValidDrop(state, target) {
+    if (!target) return false;
+    if (target.dataset.dropType === "category") {
+      return game.cardToCategory[state.card] === target.dataset.category;
+    }
+    if (target.dataset.dropType === "temp") {
+      const tempIndex = Number(target.dataset.tempIndex);
+      return !game.temp[tempIndex] && !(state.type === "temp" && state.index === tempIndex);
+    }
+    return false;
+  }
+
+  function performDrop(state, target) {
+    if (!target) {
+      setMessage(`“${state.card}” returned to its stack. Drop it on a category or Free slot.`, "warning");
+      return;
+    }
+    game.selected = { type: state.type, index: state.index, card: state.card };
+    game.hintedSource = null;
+    if (target.dataset.dropType === "category") {
+      moveSelectedToCategory(target.dataset.category);
+      return;
+    }
+    if (target.dataset.dropType === "temp") {
+      const tempIndex = Number(target.dataset.tempIndex);
+      if (!isValidDrop(state, target)) {
+        game.invalidMoves += 1;
+        game.selected = null;
+        setMessage("That Free slot is already occupied.", "error");
+        renderGame();
+        return;
+      }
+      moveSelectedToTemp(tempIndex);
+    }
+  }
+
+  function cleanupDrag() {
+    clearHoverDrop();
+    if (!dragState) return;
+    const { sourceElement, pointerId, ghost } = dragState;
+    try { sourceElement.releasePointerCapture?.(pointerId); } catch {}
+    sourceElement.removeEventListener("pointermove", onPointerMove);
+    sourceElement.removeEventListener("pointerup", onPointerUp);
+    sourceElement.removeEventListener("pointercancel", onPointerCancel);
+    sourceElement.classList.remove("dragging-source");
+    ghost?.remove();
+    document.body.classList.remove("drag-active");
+    dragState = null;
   }
 
   function selectSource(type, index) {
@@ -218,7 +426,7 @@
     if (!card) return;
     game.selected = { type, index, card };
     game.hintedSource = null;
-    setMessage(`Selected “${card}”. Choose the correct category or an empty temporary slot.`);
+    setMessage(`Selected “${card}”. Tap a yellow category pile or an empty Free slot, or drag the card directly.`);
     renderGame();
   }
 
@@ -242,7 +450,7 @@
   }
 
   function moveSelectedToTemp(index) {
-    if (!game.selected || game.temp[index] || game.completed || game.failed) return;
+    if (!game.selected || game.temp[index] || game.completed || game.failed || (game.selected.type === "temp" && game.selected.index === index)) return;
     snapshot();
     const card = game.selected.card;
     removeSelectedCard();
@@ -425,6 +633,7 @@
   }
 
   function showHome() {
+    cleanupDrag();
     clearInterval(timerId);
     closeModal();
     game = null;
