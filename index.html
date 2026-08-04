@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Text-only Category Sort gameplay prototype for level design and balance testing." />
+  <title>Category Sort - Text Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">TEXT-ONLY GAMEPLAY PROTOTYPE</p>
+        <h1>Category Sort</h1>
+      </div>
+      <div class="topbar-actions">
+        <button id="exportBtn" class="button ghost">Export Session</button>
+        <button id="resetProgressBtn" class="button danger ghost">Reset Progress</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="homeScreen" class="screen active">
+        <div class="hero-card">
+          <div>
+            <p class="eyebrow">BALANCE TEST BUILD</p>
+            <h2>Sort every visible card into its matching category.</h2>
+            <p class="muted">Use temporary slots, hints, undo and the magnet booster to solve increasingly complex levels.</p>
+          </div>
+          <div class="hero-stats">
+            <div><span>Coins</span><strong id="homeCoins">0</strong></div>
+            <div><span>Unlocked</span><strong id="homeUnlocked">1/10</strong></div>
+            <div><span>Completed</span><strong id="homeCompleted">0</strong></div>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">LEVEL SELECT</p>
+            <h2>Prototype levels</h2>
+          </div>
+          <p class="muted">Levels 1-9 are structured from the supplied walkthrough observations. Level 10 is a prototype extension.</p>
+        </div>
+        <div id="levelGrid" class="level-grid"></div>
+      </section>
+
+      <section id="gameScreen" class="screen">
+        <div class="game-header">
+          <button id="backBtn" class="button ghost">← Levels</button>
+          <div class="level-title">
+            <span id="difficultyBadge" class="badge">NORMAL</span>
+            <h2 id="levelTitle">Level 1</h2>
+          </div>
+          <div class="hud">
+            <div><span>Moves</span><strong id="movesValue">0/0</strong></div>
+            <div><span>Coins</span><strong id="coinsValue">0</strong></div>
+            <div><span>Time</span><strong id="timeValue">00:00</strong></div>
+          </div>
+        </div>
+
+        <div id="messageBar" class="message-bar" aria-live="polite">Select the top card from a stack.</div>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">TARGET CATEGORIES</p>
+              <h3>Complete every collection</h3>
+            </div>
+          </div>
+          <div id="categoryArea" class="category-area"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">CARD STACKS</p>
+              <h3>Only the top card is available</h3>
+            </div>
+            <span id="remainingCards" class="status-pill">0 cards left</span>
+          </div>
+          <div id="stackArea" class="stack-area"></div>
+        </section>
+
+        <section class="panel compact-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">TEMPORARY SLOTS</p>
+              <h3>Hold cards to reveal deeper layers</h3>
+            </div>
+          </div>
+          <div id="tempArea" class="temp-area"></div>
+        </section>
+
+        <section class="booster-bar">
+          <button id="undoBtn" class="booster-button">
+            <span class="booster-icon">↶</span>
+            <span><strong>Undo</strong><small id="undoPrice">200 coins</small></span>
+          </button>
+          <button id="hintBtn" class="booster-button">
+            <span class="booster-icon">?</span>
+            <span><strong>Hint</strong><small id="hintPrice">300 coins</small></span>
+          </button>
+          <button id="magnetBtn" class="booster-button">
+            <span class="booster-icon">✦</span>
+            <span><strong>Magnet</strong><small id="magnetCount">3 free</small></span>
+          </button>
+          <button id="restartBtn" class="booster-button secondary">
+            <span class="booster-icon">⟳</span>
+            <span><strong>Restart</strong><small>Reset this level</small></span>
+          </button>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="resultModal" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <p id="resultEyebrow" class="eyebrow">LEVEL COMPLETE</p>
+      <h2 id="resultTitle">Great work!</h2>
+      <div id="resultStats" class="result-stats"></div>
+      <div class="reward-box">
+        <span>Base reward</span>
+        <strong id="rewardValue">+30 coins</strong>
+      </div>
+      <div class="modal-actions">
+        <button id="doubleRewardBtn" class="button primary">Simulate x2 Reward</button>
+        <button id="nextLevelBtn" class="button">Next Level</button>
+        <button id="retryBtn" class="button">Retry</button>
+        <button id="modalLevelsBtn" class="button ghost">Level Select</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data/levels.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
