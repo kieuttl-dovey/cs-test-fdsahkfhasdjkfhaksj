@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="description" content="Drag-and-drop Category Sort gameplay prototype for level design and balance testing." />
+  <title>Category Sort - Drag Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">DRAG-AND-DROP GAMEPLAY PROTOTYPE</p>
+        <h1>Category Sort</h1>
+      </div>
+      <div class="topbar-actions">
+        <button id="exportBtn" class="button ghost">Export Session</button>
+        <button id="resetProgressBtn" class="button danger ghost">Reset Progress</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="homeScreen" class="screen active">
+        <div class="hero-card">
+          <div>
+            <p class="eyebrow">BALANCE TEST BUILD</p>
+            <h2>Drag every card into its matching category.</h2>
+            <p class="muted">The board now supports real mouse and touch dragging. Tap-to-select is still available as a fallback.</p>
+          </div>
+          <div class="hero-stats">
+            <div><span>Coins</span><strong id="homeCoins">0</strong></div>
+            <div><span>Unlocked</span><strong id="homeUnlocked">1/10</strong></div>
+            <div><span>Completed</span><strong id="homeCompleted">0</strong></div>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">LEVEL SELECT</p>
+            <h2>Prototype levels</h2>
+          </div>
+          <p class="muted">Levels 1-9 are structured from the supplied walkthrough observations. Level 10 is a prototype extension.</p>
+        </div>
+        <div id="levelGrid" class="level-grid"></div>
+      </section>
+
+      <section id="gameScreen" class="screen">
+        <div class="game-board">
+          <div class="game-header">
+            <button id="backBtn" class="board-icon-button" aria-label="Back to levels">←</button>
+            <div class="coin-chip"><span class="coin-symbol">●</span><strong id="coinsValue">0</strong></div>
+            <div class="move-chip">Moves <strong id="movesValue">0/0</strong></div>
+            <div class="deck-chip" aria-label="Cards remaining">
+              <span class="mini-blue-card"></span>
+              <strong id="remainingCards">0</strong>
+            </div>
+          </div>
+
+          <div class="level-heading">
+            <span id="difficultyBadge" class="badge">NORMAL</span>
+            <h2 id="levelTitle">Level 1</h2>
+            <span class="time-chip">Time <strong id="timeValue">00:00</strong></span>
+          </div>
+
+          <div id="messageBar" class="message-bar" aria-live="polite">Drag the top card to a matching category.</div>
+
+          <section class="board-section categories-section">
+            <div class="board-section-heading">
+              <span>Target categories</span>
+              <small>Drop matching cards onto the yellow piles</small>
+            </div>
+            <div id="categoryArea" class="category-area"></div>
+          </section>
+
+          <section class="board-section stacks-section">
+            <div class="board-section-heading">
+              <span>Card stacks</span>
+              <small>Only the visible top card can be moved</small>
+            </div>
+            <div id="stackArea" class="stack-area"></div>
+          </section>
+
+          <section class="board-section temp-section">
+            <div class="board-section-heading">
+              <span>Free slots</span>
+              <small>Use them to reveal deeper cards</small>
+            </div>
+            <div id="tempArea" class="temp-area"></div>
+          </section>
+
+          <section class="booster-bar">
+            <button id="hintBtn" class="booster-button">
+              <span class="booster-icon">💡</span>
+              <span><strong>Hint</strong><small id="hintPrice">300 coins</small></span>
+            </button>
+            <button id="undoBtn" class="booster-button">
+              <span class="booster-icon">↶</span>
+              <span><strong>Undo</strong><small id="undoPrice">200 coins</small></span>
+            </button>
+            <button id="magnetBtn" class="booster-button">
+              <span class="booster-icon">🧲</span>
+              <span><strong>Magnet</strong><small id="magnetCount">3 free</small></span>
+            </button>
+            <button id="restartBtn" class="booster-button secondary">
+              <span class="booster-icon">⟳</span>
+              <span><strong>Restart</strong><small>Reset level</small></span>
+            </button>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="resultModal" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <p id="resultEyebrow" class="eyebrow">LEVEL COMPLETE</p>
+      <h2 id="resultTitle">Great work!</h2>
+      <div id="resultStats" class="result-stats"></div>
+      <div class="reward-box">
+        <span>Base reward</span>
+        <strong id="rewardValue">+30 coins</strong>
+      </div>
+      <div class="modal-actions">
+        <button id="doubleRewardBtn" class="button primary">Simulate x2 Reward</button>
+        <button id="nextLevelBtn" class="button">Next Level</button>
+        <button id="retryBtn" class="button">Retry</button>
+        <button id="modalLevelsBtn" class="button ghost">Level Select</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data/levels.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
